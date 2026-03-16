@@ -1,684 +1,246 @@
-# ui/admin/products_stock.py
-# Merged: Manage Products + Stock Management into one page.
-
-import pandas as pd
+# services/sheets_client.py
+import time, random
 import streamlit as st
+import pandas as pd
 import gspread
-from services.sheets_client import (
-    read_df, clear_data_cache, get_stations, save_stations,
-    get_ws, api_call
-)
-from services.inventory_service import (
-    add_product_to_sheet, update_product_in_sheet,
-    delete_product_from_sheet, update_stock_and_log, log_transaction
-)
-from ui.components import (
-    compute_status, empty, safe_write, toast,
-    badge, status_badge, status_dot, safe_idx, esc,
-    parse_suppliers, join_suppliers
-)
-from config import CATEGORIES, UNITS, OUT_REASONS, IN_REASONS
-
-
-def page_products_stock():
-    STATIONS = get_stations()
-    st.title('Products & Stock')
-
-    suppliers_df   = read_df('suppliers')
-    supplier_names = []
-    if not suppliers_df.empty and 'supplier_name' in suppliers_df.columns:
-        supplier_names = sorted(
-            suppliers_df['supplier_name'].dropna().tolist())
-
-    tabs = st.tabs(['Products', 'Stock Update', 'Stations'])
-
-    with tabs[0]:
-        _tab_products(STATIONS, supplier_names)
-    with tabs[1]:
-        _tab_stock(STATIONS)
-    with tabs[2]:
-        _tab_stations(STATIONS)
-
-
-# ══════════════════════════════════════════════════════════
-#  TAB: Products (Add + Master List merged)
-# ══════════════════════════════════════════════════════════
-
-def _tab_products(STATIONS, supplier_names):
-    # ── Add Product (collapsible) ─────────────────────────
-    with st.expander('Add New Product', expanded=False):
-        _form_add_product(STATIONS, supplier_names)
-
-    st.markdown('---')
-
-    # ── Search + filter ───────────────────────────────────
-    df = read_df('products')
-    if df.empty:
-        empty('No products yet.', 'Use the form above to add your first item.')
-        return
-
-    df = compute_status(df)
-
-    c_search, c_status = st.columns([3, 1])
-    search = c_search.text_input(
-        'Search', placeholder='Filter by product name…',
-        key='ps_search')
-    status_filter = c_status.selectbox(
-        'Status', ['All', 'Critical', 'Low', 'OK'], key='ps_status')
-
-    if search:
-        df = df[df['product_name'].str.contains(search, case=False, na=False)]
-    if status_filter != 'All':
-        df = df[df['status'] == status_filter]
-
-    if df.empty:
-        empty('No products match your filter.')
-        return
-
-    # ── Station tabs with grid ────────────────────────────
-    present = ['All'] + [s for s in STATIONS if s in df['station'].values]
-    stn_tabs = st.tabs(present)
-
-    for tab, stn in zip(stn_tabs, present):
-        with tab:
-            sec = (df if stn == 'All'
-                   else df[df['station'] == stn]).reset_index(drop=True)
-            if sec.empty:
-                empty(f'No products in {stn}.')
-                continue
-            _render_product_grid(sec, stn, STATIONS, supplier_names)
-
-
-def _form_add_product(STATIONS, supplier_names):
-    with st.form('add_product'):
-        c1, c2 = st.columns(2)
-        with c1:
-            name     = st.text_input('Product Name *')
-            station  = st.selectbox('Station',  STATIONS)
-            category = st.selectbox('Category', CATEGORIES)
-            unit     = st.selectbox('Unit',     UNITS)
-            if supplier_names:
-                sup_sel = st.multiselect(
-                    'Supplier(s)', supplier_names, key='add_sup_multi')
-            else:
-                sup_sel = []
-                st.caption('No suppliers — add them in the Suppliers page.')
-        with c2:
-            init_stock = st.number_input(
-                'Initial Stock', min_value=0, value=0)
-            min_stock  = st.number_input(
-                'Low Stock Threshold', min_value=1, value=10)
-            crit_stock = st.number_input(
-                'Critical Stock Threshold', min_value=0, value=5)
-        desc = st.text_area('Description / Notes', placeholder='Optional')
-
-        if st.form_submit_button('Add Product', type='primary'):
-            if not name.strip():
-                st.error('Product name is required.')
-            elif crit_stock >= min_stock:
-                st.error(
-                    'Critical threshold must be lower than '
-                    'Low Stock threshold.')
-            else:
-                ex = read_df('products')
-                if (not ex.empty and
-                        name.lower()
-                        in ex['product_name'].str.lower().values):
-                    st.warning(f'"{name}" already exists.')
-                else:
-                    sup_val = join_suppliers(sup_sel)
-                    with st.spinner('Adding product…'):
-                        ok = safe_write(
-                            add_product_to_sheet,
-                            name.strip(), station, category, unit,
-                            init_stock, min_stock, crit_stock,
-                            desc, sup_val)
-                    if ok:
-                        if init_stock > 0:
-                            safe_write(
-                                log_transaction,
-                                name, 'stock_in', 0, init_stock,
-                                'Initial stock entry',
-                                st.session_state.username, unit)
-                        clear_data_cache()
-                        toast(f'"{name}" ({station}) added.')
-                        st.rerun()
-
-
-def _render_product_grid(df, stn, STATIONS, supplier_names):
-    """Render product rows with status dots + inline edit."""
-
-    # Grid header (inside same [12,1] split as rows so columns align)
-    hdr_col, _ = st.columns([12, 1])
-    hdr_col.markdown(
-        '<div class="pgrid-header">'
-        '<span></span>'
-        '<span>Product</span>'
-        '<span>Stock</span>'
-        '<span>Unit</span>'
-        '<span>Min</span>'
-        '<span>Critical</span>'
-        '<span>Station</span>'
-        '</div>', unsafe_allow_html=True)
-
-    for idx, row in df.iterrows():
-        pname  = str(row.get('product_name', ''))
-        pid    = str(row.get('product_id', ''))
-        cur    = int(pd.to_numeric(
-            row.get('current_stock', 0), errors='coerce') or 0)
-        unit   = str(row.get('unit', ''))
-        mn     = int(pd.to_numeric(
-            row.get('min_stock', 0), errors='coerce') or 0)
-        crit   = int(pd.to_numeric(
-            row.get('critical_stock', 0), errors='coerce') or 0)
-        r_stn  = str(row.get('station', ''))
-        status = str(row.get('status', 'OK'))
-        dot    = status_dot(status)
-        edit_key = f'edit_open_{pid}'
-
-        # Row
-        col_row, col_btn = st.columns([12, 1])
-        col_row.markdown(
-            f'<div class="pgrid-row">'
-            f'<span>{dot}</span>'
-            f'<span style="font-weight:600;">{esc(pname)}</span>'
-            f'<span class="pgrid-stock">{cur}</span>'
-            f'<span class="pgrid-muted">{esc(unit)}</span>'
-            f'<span class="pgrid-muted">{mn}</span>'
-            f'<span class="pgrid-muted">{crit}</span>'
-            f'<span class="pgrid-muted">{esc(r_stn)}</span>'
-            f'</div>', unsafe_allow_html=True)
-
-        if col_btn.button('✏️', key=f'ed_{stn}_{idx}',
-                          use_container_width=True):
-            st.session_state[edit_key] = not st.session_state.get(
-                edit_key, False)
-            st.rerun()
-
-        if st.session_state.get(edit_key, False):
-            _edit_panel(row, idx, stn, pid, pname,
-                        STATIONS, supplier_names, edit_key)
-
-
-def _edit_panel(row, idx, stn, pid, pname, STATIONS, supplier_names, edit_key):
-    with st.container(border=True):
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            ns = st.selectbox(
-                'Station', STATIONS,
-                index=safe_idx(STATIONS, row.get('station', 'Others')),
-                key=f'ns_{stn}_{idx}')
-            nc = st.selectbox(
-                'Category', CATEGORIES,
-                index=safe_idx(CATEGORIES, row.get('category', 'Others')),
-                key=f'nc_{stn}_{idx}')
-            nu = st.selectbox(
-                'Unit', UNITS,
-                index=safe_idx(UNITS, row.get('unit', 'pcs')),
-                key=f'nu_{stn}_{idx}')
-            # Multi-supplier select
-            cur_sups = parse_suppliers(row.get('supplier', ''))
-            if supplier_names:
-                ns_sup = st.multiselect(
-                    'Supplier(s)', supplier_names,
-                    default=[s for s in cur_sups if s in supplier_names],
-                    key=f'nsup_{stn}_{idx}')
-            else:
-                ns_sup = []
-        with ec2:
-            nm = st.number_input(
-                'Low Stock Threshold', min_value=1,
-                value=int(pd.to_numeric(
-                    row.get('min_stock', 10), errors='coerce') or 10),
-                key=f'nm_{stn}_{idx}')
-            ncr = st.number_input(
-                'Critical Stock Threshold', min_value=0,
-                value=int(pd.to_numeric(
-                    row.get('critical_stock', 5), errors='coerce') or 5),
-                key=f'ncr_{stn}_{idx}')
-            nd = st.text_input(
-                'Description',
-                value=str(row.get('description', '')),
-                key=f'nd_{stn}_{idx}')
-
-        btn_save, btn_del, btn_close = st.columns([2, 2, 2])
-
-        with btn_save:
-            if st.button('Save', key=f'save_{stn}_{idx}',
-                         type='primary', use_container_width=True):
-                if ncr >= nm:
-                    st.error(
-                        'Critical must be lower than Low Stock threshold.')
-                else:
-                    sup_save = join_suppliers(ns_sup)
-                    with st.spinner('Saving…'):
-                        ok = safe_write(
-                            update_product_in_sheet, pid, pname,
-                            {'station': ns, 'category': nc, 'unit': nu,
-                             'min_stock': nm, 'critical_stock': ncr,
-                             'description': nd, 'supplier': sup_save})
-                    if ok:
-                        st.session_state[edit_key] = False
-                        clear_data_cache()
-                        toast(f'"{pname}" updated.')
-                        st.rerun()
-
-        with btn_del:
-            del_key = f'cdel_{stn}_{idx}'
-            if st.button('Delete', key=f'del_{stn}_{idx}',
-                         use_container_width=True):
-                st.session_state[del_key] = True
-                st.rerun()
-
-        with btn_close:
-            if st.button('Close', key=f'close_{stn}_{idx}',
-                         use_container_width=True):
-                st.session_state[edit_key] = False
-                st.rerun()
-
-        if st.session_state.get(f'cdel_{stn}_{idx}'):
-            st.warning(f'Delete **{pname}**? This cannot be undone.')
-            with st.form(key=f'del_confirm_{stn}_{idx}'):
-                confirm_name = st.text_input(
-                    'Type the product name to confirm:',
-                    placeholder=pname)
-                cy, cn = st.columns(2)
-                confirmed = cy.form_submit_button(
-                    'Yes, Delete', type='primary')
-                cancelled = cn.form_submit_button('Cancel')
-
-            if confirmed:
-                if confirm_name.strip().lower() != pname.lower():
-                    st.error('Name does not match. Check spelling.')
-                else:
-                    with st.spinner('Deleting…'):
-                        ok = safe_write(
-                            delete_product_from_sheet, pid, pname)
-                    if ok:
-                        st.session_state[f'cdel_{stn}_{idx}'] = False
-                        st.session_state[edit_key] = False
-                        clear_data_cache()
-                        toast(f'"{pname}" deleted.')
-                        st.rerun()
-            if cancelled:
-                st.session_state[f'cdel_{stn}_{idx}'] = False
-                st.rerun()
-
-
-# ══════════════════════════════════════════════════════════
-#  TAB: Stock Update (Quick + Detailed)
-# ══════════════════════════════════════════════════════════
-
-def _tab_stock(STATIONS):
-    df = read_df('products')
-    if df.empty:
-        empty('No products found.', 'Add products first.')
-        return
-
-    username = st.session_state.username
-    tab_quick, tab_detail = st.tabs(['Quick Update', 'Detailed'])
-
-    with tab_quick:
-        _quick_stock(df, username, STATIONS)
-    with tab_detail:
-        _detailed_stock(df, username, STATIONS)
-
-
-def _quick_stock(products_df, username, STATIONS):
-    df = products_df.copy()
-    df['current_stock'] = pd.to_numeric(
-        df['current_stock'], errors='coerce').fillna(0)
-    if 'station' not in df.columns:
-        df['station'] = 'Others'
-    df['station'] = df['station'].replace('', 'Others').fillna('Others')
-
-    from ui.components import compute_status as cs
-    df = cs(df)
-
-    col_f, col_s = st.columns([1, 2])
-    sf = col_f.selectbox(
-        'Station',
-        ['All'] + [s for s in STATIONS if s in df['station'].values],
-        key='ps_qs_sf')
-    srch = col_s.text_input(
-        'Search', placeholder='Filter by name…', key='ps_qs_srch')
-
-    fdf = df if sf == 'All' else df[df['station'] == sf]
-    if srch:
-        fdf = fdf[fdf['product_name'].str.contains(
-            srch, case=False, na=False)]
-    if fdf.empty:
-        empty('No products match your filter.')
-        return
-
-    # Pending confirmation
-    qs_pending = st.session_state.get('qs_pending')
-    if qs_pending:
-        _render_pending(qs_pending, username)
-        return
-
-    for idx, row in fdf.reset_index(drop=True).iterrows():
-        pname  = row['product_name']
-        pid    = str(row.get('product_id', ''))
-        cur    = int(row['current_stock'])
-        unit   = row.get('unit', '')
-        status = str(row.get('status', 'OK'))
-        mn     = int(pd.to_numeric(
-            row.get('min_stock', 0), errors='coerce') or 0)
-        dot    = status_dot(status)
-
-        c1, c2, c3, c4 = st.columns(
-            [4, 1, 1, 1], vertical_alignment='center')
-
-        c1.markdown(
-            f'<div style="padding:.35rem 0;">'
-            f'<span style="font-size:.85rem;display:flex;'
-            f'align-items:center;gap:6px;">'
-            f'{dot} {esc(pname)}</span>'
-            f'<span style="font-size:.82rem;color:#7A7A7A;">'
-            f'Stock: <strong style="color:#111;">'
-            f'{cur} {esc(unit)}</strong>'
-            f'&nbsp;·&nbsp;min {mn}</span></div>',
-            unsafe_allow_html=True)
-
-        qty = c2.number_input(
-            'Qty', min_value=1, value=1,
-            key=f'ps_qty_{idx}', label_visibility='collapsed')
-
-        if c3.button('+ In', key=f'ps_in_{idx}',
-                     use_container_width=True, type='primary'):
-            st.session_state['qs_pending'] = {
-                'pid': pid, 'product': pname, 'cur': cur,
-                'qty': qty, 'unit': unit, 'action': 'in'}
-            st.rerun()
-
-        if c4.button('- Out', key=f'ps_out_{idx}',
-                     use_container_width=True):
-            if qty > cur:
-                st.error(f'Only {cur} {unit} available.')
-            else:
-                st.session_state['qs_pending'] = {
-                    'pid': pid, 'product': pname, 'cur': cur,
-                    'qty': qty, 'unit': unit, 'action': 'out'}
-                st.rerun()
-
-        st.markdown(
-            '<hr style="margin:.1rem 0;border-color:#E8E0D0;">',
-            unsafe_allow_html=True)
-
-
-def _render_pending(p, username):
-    act   = p['action']
-    new_s = p['cur'] + p['qty'] if act == 'in' else p['cur'] - p['qty']
-    arrow = '+' if act == 'in' else '-'
-    st.markdown(
-        f'<div style="background:#FFF9E6;border:2px solid #E8E0D0;'
-        f'border-radius:6px;padding:.8rem 1rem;margin-bottom:.75rem;">'
-        f'<p style="font-weight:700;font-size:.88rem;margin:0 0 .3rem 0;">'
-        f'Confirm {"Stock In" if act == "in" else "Stock Out"}</p>'
-        f'<p style="font-size:.85rem;margin:0;">'
-        f'<strong>{esc(p["product"])}</strong>: '
-        f'<span style="font-weight:700;">'
-        f'{p["cur"]} {arrow} {new_s} {esc(p["unit"])}</span></p>'
-        f'</div>', unsafe_allow_html=True)
-
-    reason_opts = IN_REASONS if act == 'in' else OUT_REASONS
-    reason = st.selectbox('Reason', reason_opts, key='ps_qs_reason')
-
-    c_yes, c_no = st.columns(2)
-    with c_yes:
-        if st.button('Apply', key='ps_qs_yes',
-                     type='primary', use_container_width=True):
-            ok = safe_write(
-                update_stock_and_log,
-                p['pid'], p['product'],
-                'stock_in' if act == 'in' else 'stock_out',
-                p['cur'], new_s, reason, username)
-            if ok:
-                st.session_state.pop('qs_pending', None)
-                clear_data_cache()
-                toast(f'{p["product"]}: {p["cur"]}→{new_s} {p["unit"]}')
-                st.rerun()
-    with c_no:
-        if st.button('Cancel', key='ps_qs_no',
-                     use_container_width=True):
-            st.session_state.pop('qs_pending', None)
-            st.rerun()
-
-
-def _detailed_stock(products_df, username, STATIONS):
-    df = products_df.copy()
-    df['current_stock'] = pd.to_numeric(
-        df['current_stock'], errors='coerce').fillna(0)
-    if 'station' not in df.columns:
-        df['station'] = 'Others'
-    df['station'] = df['station'].replace('', 'Others').fillna('Others')
-
-    sf = st.selectbox(
-        'Filter by Station',
-        ['All'] + [s for s in STATIONS if s in df['station'].values],
-        key='ps_dsf')
-    fdf = df if sf == 'All' else df[df['station'] == sf]
-    names = fdf['product_name'].tolist()
-    if not names:
-        empty(f'No products in {sf}.')
-        return
-
-    tab_in, tab_out = st.tabs(['Stock In', 'Stock Out'])
-
-    with tab_in:
-        sel = st.selectbox('Product', names, key='ps_din')
-        row = fdf[fdf['product_name'] == sel].iloc[0]
-        st.markdown(
-            f'<div style="background:#F7F7F8;border:1px solid #EBEBEB;'
-            f'border-radius:6px;padding:.5rem 1rem;'
-            f'margin:.4rem 0 .8rem 0;font-size:.85rem;">'
-            f'Current: <strong>{int(row["current_stock"])} '
-            f'{row["unit"]}</strong>'
-            f'&nbsp;·&nbsp;Min: {int(row["min_stock"])}'
-            f'&nbsp;·&nbsp;Critical: '
-            f'{int(row["critical_stock"])}</div>',
-            unsafe_allow_html=True)
-
-        with st.form('ps_din_form'):
-            qty   = st.number_input('Quantity to Add', min_value=1, value=1)
-            notes = st.text_input(
-                'Notes / Source',
-                placeholder='e.g. Delivery from Supplier X')
-            if st.form_submit_button('Confirm Stock In', type='primary'):
-                r   = fdf[fdf['product_name'] == sel].iloc[0]
-                pid = str(r.get('product_id', ''))
-                old = int(r['current_stock'])
-                new = old + qty
-                with st.spinner('Saving…'):
-                    ok = safe_write(
-                        update_stock_and_log,
-                        pid, sel, 'stock_in', old, new,
-                        notes, username)
-                if ok:
-                    clear_data_cache()
-                    toast(f'Stock In: {sel} {old}→{new} {r["unit"]}')
-                    st.rerun()
-
-    with tab_out:
-        sel = st.selectbox('Product', names, key='ps_dout')
-        row = fdf[fdf['product_name'] == sel].iloc[0]
-        st.markdown(
-            f'<div style="background:#F7F7F8;border:1px solid #EBEBEB;'
-            f'border-radius:6px;padding:.5rem 1rem;'
-            f'margin:.4rem 0 .8rem 0;font-size:.85rem;">'
-            f'Current: <strong>{int(row["current_stock"])} '
-            f'{row["unit"]}</strong>'
-            f'&nbsp;·&nbsp;Min: {int(row["min_stock"])}'
-            f'&nbsp;·&nbsp;Critical: '
-            f'{int(row["critical_stock"])}</div>',
-            unsafe_allow_html=True)
-
-        with st.form('ps_dout_form'):
-            qty    = st.number_input(
-                'Quantity to Remove', min_value=1, value=1)
-            reason = st.selectbox('Reason', OUT_REASONS)
-            custom = ''
-            if reason == 'Other — specify':
-                custom = st.text_input('Please specify reason *')
-            notes = st.text_input(
-                'Additional Notes', placeholder='Optional')
-
-            if st.form_submit_button('Confirm Stock Out', type='primary'):
-                if reason == 'Other — specify' and not custom.strip():
-                    st.error('Please specify the reason.')
-                else:
-                    r   = fdf[fdf['product_name'] == sel].iloc[0]
-                    pid = str(r.get('product_id', ''))
-                    old = int(r['current_stock'])
-                    if qty > old:
-                        st.error(
-                            f'Not enough stock. '
-                            f'Available: {old} {r["unit"]}')
-                    else:
-                        new        = old - qty
-                        reason_log = (custom
-                                      if reason == 'Other — specify'
-                                      else reason)
-                        log_note   = (f'{reason_log} — {notes}'
-                                      if notes else reason_log)
-                        with st.spinner('Saving…'):
-                            ok = safe_write(
-                                update_stock_and_log,
-                                pid, sel, 'stock_out',
-                                old, new, log_note, username)
-                        if ok:
-                            clear_data_cache()
-                            toast(
-                                f'Stock Out: {sel} '
-                                f'{old}→{new} {r["unit"]}')
-                            st.rerun()
-
-
-# ══════════════════════════════════════════════════════════
-#  TAB: Stations
-# ══════════════════════════════════════════════════════════
-
-def _tab_stations(STATIONS):
-    current_stations = list(STATIONS)
-    hc1, hc2 = st.columns([6, 1])
-    hc1.subheader('Stations')
-
-    if hc2.button('Add', key='stn_add_toggle', help='Add new station'):
-        st.session_state['stn_adding'] = not st.session_state.get(
-            'stn_adding', False)
-        st.rerun()
-
-    if st.session_state.get('stn_adding', False):
-        with st.form('add_station_inline'):
-            na_col, sb_col = st.columns([4, 1])
-            new_stn = na_col.text_input(
-                'New station name',
-                placeholder='e.g. Bar, Bakery…',
-                label_visibility='collapsed')
-            if sb_col.form_submit_button('Add', use_container_width=True,
-                                         type='primary'):
-                if not new_stn.strip():
-                    st.error('Station name is required.')
-                elif new_stn.strip() in current_stations:
-                    st.warning(f'"{new_stn}" already exists.')
-                else:
-                    updated = current_stations + [new_stn.strip()]
-                    with st.spinner('Saving…'):
-                        ok = save_stations(updated)
-                    if ok:
-                        st.session_state['stn_adding'] = False
-                        clear_data_cache()
-                        toast(f'Station "{new_stn.strip()}" added.')
-                        st.rerun()
-
-    st.caption('Edit or remove stations. Changes apply across the app.')
-
-    for i, stn in enumerate(current_stations):
-        edit_k = f'stn_edit_{i}'
-        c_badge, c_edit, c_del = st.columns([5, 1, 1])
-        c_badge.markdown(
-            f'<div style="padding:.3rem 0;">{badge(stn)}</div>',
-            unsafe_allow_html=True)
-
-        if c_edit.button('Rename', key=f'stn_pencil_{i}',
-                         use_container_width=True):
-            st.session_state[edit_k] = not st.session_state.get(
-                edit_k, False)
-            st.rerun()
-
-        if c_del.button('Remove', key=f'rm_stn_{i}',
-                        use_container_width=True):
-            if len(current_stations) <= 1:
-                st.error('You must have at least one station.')
-            else:
-                prods_df = read_df('products')
-                if not prods_df.empty and 'station' in prods_df.columns:
-                    in_use = (prods_df['station'] == stn).sum()
-                    if in_use > 0:
-                        st.warning(
-                            f'"{stn}" has {in_use} product(s) assigned. '
-                            f'Reassign them first.')
-                    else:
-                        new_list = [
-                            s for s in current_stations if s != stn]
-                        with st.spinner(f'Removing {stn}…'):
-                            ok = save_stations(new_list)
-                        if ok:
-                            clear_data_cache()
-                            toast(f'Station "{stn}" removed.')
-                            st.rerun()
-
-        if st.session_state.get(edit_k, False):
-            with st.form(f'stn_rename_form_{i}'):
-                rc1, rc2, rc3 = st.columns([4, 1, 1])
-                new_name = rc1.text_input(
-                    'New name', value=stn,
-                    label_visibility='collapsed')
-                if rc2.form_submit_button('Save', type='primary'):
-                    if not new_name.strip():
-                        st.error('Name required.')
-                    elif (new_name.strip() in current_stations
-                          and new_name.strip() != stn):
-                        st.warning('That name already exists.')
-                    else:
-                        updated = [
-                            new_name.strip() if s == stn else s
-                            for s in current_stations]
-                        with st.spinner('Saving…'):
-                            ok = save_stations(updated)
-                        if ok:
-                            try:
-                                ws_p = get_ws('products')
-                                vals = api_call(ws_p.get_all_values)
-                                hdrs = vals[0]
-                                if 'station' in hdrs:
-                                    sc = hdrs.index('station') + 1
-                                    cells = []
-                                    for ri, rv in enumerate(
-                                            vals[1:], start=2):
-                                        if rv[sc - 1] == stn:
-                                            cells.append(gspread.Cell(
-                                                row=ri, col=sc,
-                                                value=new_name.strip()))
-                                    if cells:
-                                        api_call(
-                                            ws_p.update_cells, cells)
-                            except Exception as e:
-                                st.warning(
-                                    f'Station renamed but some '
-                                    f'products could not be updated: '
-                                    f'{e}')
-                            st.session_state[edit_k] = False
-                            clear_data_cache()
-                            toast(
-                                f'Station renamed to '
-                                f'"{new_name.strip()}".')
-                            st.rerun()
-                if rc3.form_submit_button('Cancel'):
-                    st.session_state[edit_k] = False
-                    st.rerun()
-
-        st.markdown(
-            '<hr style="margin:.15rem 0;border-color:#F4F4F4;">',
-            unsafe_allow_html=True)
+from google.oauth2.service_account import Credentials
+from config import SCOPES, SHEETS, DEFAULT_STATIONS, DEFAULT_CATEGORIES, CACHE_TTL
+
+def api_call(fn, *args, max_retries=4, **kwargs):
+    for attempt in range(max_retries):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            msg = str(e)
+            if ('429' in msg or 'quota' in msg.lower() or
+                    '503' in msg or 'UNAVAILABLE' in msg):
+                if attempt < max_retries - 1:
+                    time.sleep((2 ** attempt) + random.uniform(0, 1))
+                    continue
+            raise
+    return fn(*args, **kwargs)
+
+@st.cache_resource(show_spinner=False)
+def get_client():
+    try:
+        info = {k: v for k, v in st.secrets['gcp_service_account'].items()}
+        pk = info.get('private_key', '')
+        pk = pk.replace('\\n', '\n')
+        pk = pk.strip() + '\n'
+        info['private_key'] = pk
+        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f'Failed to connect to Google: {e}')
+        return None
+
+@st.cache_resource(show_spinner=False)
+def _get_spreadsheet():
+    client = get_client()
+    if client is None:
+        raise ConnectionError('Google Sheets client not available.')
+    return client.open(st.secrets['spreadsheet_name'])
+
+@st.cache_resource(show_spinner=False)
+def get_ws(key):
+    return _get_spreadsheet().worksheet(SHEETS[key])
+
+
+def get_or_create_ws(key, default_headers=None):
+    ss         = _get_spreadsheet()
+    sheet_name = SHEETS[key]
+    try:
+        ws = api_call(ss.worksheet, sheet_name)
+    except Exception as e:
+        ename = type(e).__name__.lower()
+        emsg  = str(e).lower()
+        if 'notfound' in ename or 'not found' in emsg or 'worksheet' in ename:
+            col_count = max(len(default_headers or []) + 2, 10)
+            ws = api_call(ss.add_worksheet,
+                          title=sheet_name, rows=2000, cols=col_count)
+            if default_headers:
+                api_call(ws.update, 'A1', [default_headers],
+                         value_input_option='USER_ENTERED')
+            get_ws.clear()
+        else:
+            raise
+    else:
+        if default_headers:
+            first_row = api_call(ws.row_values, 1)
+            if not any(str(v).strip() for v in first_row):
+                api_call(ws.update, 'A1', [default_headers],
+                         value_input_option='USER_ENTERED')
+    return ws
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def read_df(key):
+    try:
+        ws = get_ws(key)
+        records = api_call(ws.get_all_records)
+        return pd.DataFrame(records) if records else pd.DataFrame()
+    except Exception as e:
+        msg = str(e)
+        if '429' in msg or 'quota' in msg.lower():
+            st.warning('Google Sheets is busy - showing cached data.')
+        else:
+            st.warning(f'Could not load {key} data: {e}')
+        return pd.DataFrame()
+
+def clear_data_cache():
+    for fn, name in [
+        (read_df,                 'read_df'),
+        (get_staff_display_names, 'get_staff_display_names'),
+        (get_stations,            'get_stations'),
+        (get_categories,          'get_categories'),
+        (get_ws,                  'get_ws'),
+    ]:
+        try:
+            fn.clear()
+        except Exception as exc:
+            import sys
+            print(f'[sheets_client] clear: could not clear {name}: {exc}',
+                  file=sys.stderr)
+
+def get_sheet_url():
+    try:
+        ss = _get_spreadsheet()
+        return f'https://docs.google.com/spreadsheets/d/{ss.id}/edit'
+    except Exception:
+        return None
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def get_stations():
+    try:
+        ws = get_ws('stations')
+        vals = api_call(ws.col_values, 1)
+        stns = [v.strip() for v in vals if v.strip()]
+        return stns if stns else DEFAULT_STATIONS
+    except Exception:
+        return list(DEFAULT_STATIONS)
+
+def save_stations(station_list):
+    try:
+        ws = get_ws('stations')
+        api_call(ws.clear)
+        if station_list:
+            api_call(ws.update, 'A1',
+                     [[s] for s in station_list],
+                     value_input_option='USER_ENTERED')
+        get_stations.clear()
+        return True
+    except Exception as e:
+        st.error(f'Failed to save stations: {e}')
+        return False
+
+
+# ── Categories ────────────────────────────────────────────
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def get_categories():
+    """
+    Returns the live category list from the Categories sheet.
+    Falls back to DEFAULT_CATEGORIES if the sheet is empty or missing.
+    Auto-seeds the sheet with defaults on first use.
+    """
+    try:
+        ws   = get_ws('categories')
+        vals = api_call(ws.col_values, 1)
+        cats = [v.strip() for v in vals if v.strip()]
+        if cats:
+            return cats
+        # Sheet exists but empty — seed with defaults
+        api_call(ws.update, 'A1',
+                 [[c] for c in DEFAULT_CATEGORIES],
+                 value_input_option='USER_ENTERED')
+        return list(DEFAULT_CATEGORIES)
+    except Exception:
+        return list(DEFAULT_CATEGORIES)
+
+
+def save_categories(category_list):
+    """Writes the full category list to the Categories sheet."""
+    try:
+        ws = get_ws('categories')
+        api_call(ws.clear)
+        if category_list:
+            api_call(ws.update, 'A1',
+                     [[c] for c in category_list],
+                     value_input_option='USER_ENTERED')
+        get_categories.clear()
+        return True
+    except Exception as e:
+        st.error(f'Failed to save categories: {e}')
+        return False
+
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def get_staff_display_names():
+    try:
+        df = read_df('users')
+        if df.empty or 'username' not in df.columns:
+            return {}
+        result = {}
+        for _, row in df.iterrows():
+            uname = str(row.get('username', '')).strip()
+            dname = str(row.get('display_name', '')).strip()
+            if uname:
+                result[uname.lower()] = dname if dname else uname
+        return result
+    except Exception:
+        return {}
+
+
+def reset_sheet_data(key):
+    try:
+        ws = get_ws(key)
+        rows = api_call(ws.get_all_values)
+        if len(rows) > 1:
+            api_call(ws.delete_rows, 2, len(rows))
+        clear_data_cache()
+        return True
+    except Exception as e:
+        raise ValueError(f'Failed to reset {key}: {e}')
+
+
+def update_supplier_in_sheet(supplier_id, updates: dict):
+    import gspread as _gs
+    ws = get_ws('suppliers')
+    records = api_call(ws.get_all_records)
+    headers = api_call(ws.row_values, 1)
+    col_map = {h: idx + 1 for idx, h in enumerate(headers)}
+
+    row_idx = None
+    id_col = 'supplier_id' if 'supplier_id' in col_map else headers[0]
+    for i, rec in enumerate(records, start=2):
+        if str(rec.get(id_col, '')) == str(supplier_id):
+            row_idx = i
+            break
+
+    if row_idx is None:
+        raise ValueError(f'Supplier "{supplier_id}" not found.')
+
+    cells = []
+    for col_name, value in updates.items():
+        if col_name in col_map:
+            cells.append(_gs.Cell(
+                row=row_idx, col=col_map[col_name], value=value))
+    if cells:
+        api_call(ws.update_cells, cells)
+
+
+def delete_supplier_from_sheet(supplier_id):
+    ws = get_ws('suppliers')
+    records = api_call(ws.get_all_records)
+    headers = api_call(ws.row_values, 1)
+    id_col = 'supplier_id' if 'supplier_id' in headers else headers[0]
+
+    row_idx = None
+    for i, rec in enumerate(records, start=2):
+        if str(rec.get(id_col, '')) == str(supplier_id):
+            row_idx = i
+            break
+
+    if row_idx is None:
+        raise ValueError('Supplier not found.')
+
+    api_call(ws.delete_rows, row_idx)
