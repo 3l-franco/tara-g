@@ -1,0 +1,485 @@
+/* styles/admin.css
+   Admin desktop — Yellow & Black brand design system
+   Professional warm palette with gold accents */
+
+/* ── Design tokens ───────────────────────────────────── */
+:root {
+    --a-ink:       #1A1A1A;
+    --a-secondary: #4A4A4A;
+    --a-muted:     #7A7A7A;
+    --a-border:    #E8E0D0;
+    --a-border-dk: #D4C9B8;
+    --a-surface:   #FFF9E6;
+    --a-bg:        #FFFDF5;
+    --a-hover:     #FFF3CC;
+    --a-accent:    #F5C518;
+    --a-radius:    6px;
+    --a-font:      -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                   'Inter', sans-serif;
+    --dot-crit:    #E53935;
+    --dot-low:     #F9A825;
+    --dot-ok:      #43A047;
+}
+
+/* ── Sidebar ─────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    min-width: 230px;
+    max-width: 250px;
+    background: var(--a-surface) !important;
+    border-right: 1px solid var(--a-border) !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+    margin: 0;
+}
+
+/* Hide default radio circles for nav */
+[data-testid="stSidebar"] .stRadio > div { display: none !important; }
+
+/* ── Sidebar nav buttons — strip browser chrome ───────── */
+[data-testid="stSidebar"] .stButton > button {
+    border-radius: var(--a-radius) !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: .9rem !important;
+    text-align: left !important;
+    padding: .45rem .75rem !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+    transition: background .12s ease !important;
+    letter-spacing: -.01em !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+    background: transparent !important;
+    color: var(--a-secondary) !important;
+    border: none !important;
+    font-weight: 500 !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+    background: var(--a-hover) !important;
+    color: var(--a-ink) !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    background: var(--a-ink) !important;
+    border-color: var(--a-ink) !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+}
+
+/* ── Custom sidebar nav ──────────────────────────────── */
+.sidebar-nav { list-style: none; padding: 0; margin: 0; }
+.sidebar-nav li { margin: 0; }
+.sidebar-nav a,
+.sidebar-nav button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    font-size: .92rem;
+    font-weight: 500;
+    color: var(--a-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    border-radius: var(--a-radius);
+    transition: all .12s ease;
+    letter-spacing: -.01em;
+    text-align: left;
+}
+.sidebar-nav button:hover { background: var(--a-hover); }
+.sidebar-nav button.active {
+    background: var(--a-ink);
+    color: #FFF;
+    font-weight: 600;
+}
+.sidebar-nav .nav-badge {
+    margin-left: auto;
+    background: var(--dot-crit);
+    color: #FFF;
+    font-size: .7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* ── Content area ────────────────────────────────────── */
+.block-container {
+    padding-top: 1.5rem !important;
+    max-width: 1100px !important;
+    font-family: var(--a-font);
+    font-size: 15px !important;
+}
+
+/* ── Typography ──────────────────────────────────────── */
+h1 {
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -.03em !important;
+    color: var(--a-ink) !important;
+}
+
+h2, h3 {
+    font-size: 1.15rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -.02em !important;
+    color: var(--a-ink) !important;
+}
+
+/* ── Compact horizontal rules ────────────────────────── */
+hr {
+    margin: .75rem 0 !important;
+    border-color: var(--a-border) !important;
+}
+
+/* ── Caption / muted text ────────────────────────────── */
+[data-testid="stCaptionContainer"],
+.stCaption,
+small {
+    color: var(--a-muted) !important;
+    font-size: .85rem !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.stButton > button {
+    border-radius: var(--a-radius) !important;
+    font-weight: 600 !important;
+    font-size: .92rem !important;
+    color: var(--a-secondary) !important;
+    letter-spacing: -.01em;
+    transition: all .15s ease;
+}
+
+.stButton > button[kind="primary"] {
+    background: var(--a-ink) !important;
+    border-color: var(--a-ink) !important;
+    color: #FFF !important;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: #333 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18) !important;
+}
+
+.stButton > button[kind="secondary"] {
+    background: var(--a-bg) !important;
+    border: 1px solid var(--a-border-dk) !important;
+    color: var(--a-secondary) !important;
+}
+
+.stButton > button[kind="secondary"]:hover {
+    background: var(--a-hover) !important;
+    border-color: var(--a-ink) !important;
+}
+
+/* ── Branded Streamlit container (border=True) ────────── */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border: 1px solid var(--a-border-dk) !important;
+    border-radius: var(--a-radius) !important;
+    padding: 1rem !important;
+    background: var(--a-surface) !important;
+}
+
+/* ── Admin data table hover rows ─────────────────────── */
+.admin-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .92rem;
+}
+.admin-tbl thead th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--a-muted);
+    font-weight: 600;
+    border-bottom: 2px solid var(--a-border);
+}
+.admin-tbl tbody tr {
+    border-bottom: 1px solid var(--a-border);
+    transition: background .1s ease;
+}
+.admin-tbl tbody tr:hover td {
+    background: var(--a-hover);
+}
+.admin-tbl td {
+    padding: 7px 8px;
+    vertical-align: middle;
+}
+
+/* ── Spinner brand-consistent ────────────────────────── */
+.stSpinner > div {
+    border-top-color: var(--a-ink) !important;
+}
+
+/* ── Inputs ──────────────────────────────────────────── */
+.stTextInput input,
+.stSelectbox > div > div,
+.stNumberInput input,
+.stTextArea textarea {
+    border-radius: var(--a-radius) !important;
+    border: 1px solid var(--a-border-dk) !important;
+    font-size: .95rem !important;
+}
+
+/* Suppress browser/BaseWeb yellow focus ring — clip bleed with thin ring */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+    outline: none !important;
+    outline-offset: 0 !important;
+}
+
+/* Target the BaseWeb wrapper (what actually shows the colored border) */
+[data-baseweb="input"]:focus-within,
+[data-baseweb="textarea"]:focus-within,
+[data-baseweb="base-input"]:focus-within {
+    border-color: rgba(26,26,26,0.4) !important;
+    box-shadow: 0 0 0 1px rgba(26,26,26,0.20) !important;
+    outline: none !important;
+}
+
+/* Fallback — class-based selectors for older Streamlit versions */
+.stTextInput input:focus,
+.stSelectbox > div > div:focus-within,
+.stNumberInput input:focus,
+.stTextArea textarea:focus {
+    border-color: rgba(26,26,26,0.4) !important;
+    box-shadow: 0 0 0 1px rgba(26,26,26,0.20) !important;
+    outline: none !important;
+}
+
+/* ── Form / widget labels — normalize Streamlit amber leak ── */
+[data-testid="stWidgetLabel"] label,
+[data-testid="stWidgetLabel"] p {
+    color: var(--a-secondary) !important;
+}
+
+/* ── Tabs ────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0 !important;
+    border-bottom: 2px solid var(--a-border) !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    font-size: .92rem !important;
+    font-weight: 500 !important;
+    color: var(--a-muted) !important;
+    padding: .5rem 1.1rem !important;
+    transition: color .12s ease !important;
+}
+
+.stTabs [aria-selected="true"] {
+    color: var(--a-ink) !important;
+    font-weight: 700 !important;
+    border-bottom: 3px solid var(--a-accent) !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
+    color: var(--a-secondary) !important;
+    background: var(--a-hover) !important;
+}
+
+/* ── Dataframe ───────────────────────────────────────── */
+.stDataFrame {
+    border: 1px solid var(--a-border) !important;
+    border-radius: var(--a-radius) !important;
+}
+
+/* ── Responsive inventory table ─────────────────────── */
+@media (max-width: 640px) {
+    .inv-col-unit { display: none; }
+}
+
+/* ── Status dots ─────────────────────────────────────── */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.dot-crit { background: var(--dot-crit); }
+.dot-low  { background: var(--dot-low); }
+.dot-ok   { background: var(--dot-ok); }
+
+/* ── Dashboard segmented nav ─────────────────────────── */
+.seg-nav {
+    display: inline-flex;
+    background: var(--a-surface);
+    border: 1px solid var(--a-border);
+    border-radius: var(--a-radius);
+    padding: 3px;
+    gap: 2px;
+    flex-wrap: wrap;
+}
+.seg-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--a-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .12s ease;
+    white-space: nowrap;
+}
+.seg-btn:hover { background: var(--a-hover); color: var(--a-secondary); }
+.seg-btn.active {
+    background: var(--a-ink);
+    color: #FFF;
+    font-weight: 600;
+}
+
+/* ── Product grid rows ───────────────────────────────── */
+.pgrid-header,
+.pgrid-row {
+    display: grid;
+    grid-template-columns: 26px 1fr 90px 60px 80px 80px 110px;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    font-size: .92rem;
+}
+.pgrid-header {
+    font-weight: 600;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--a-muted);
+    border-bottom: 1px solid var(--a-border);
+    padding-bottom: 8px;
+}
+.pgrid-row {
+    border-bottom: 1px solid #E8E0D0;
+    color: var(--a-ink);
+}
+.pgrid-row:hover { background: var(--a-hover); }
+.pgrid-stock { font-weight: 700; }
+.pgrid-muted { color: var(--a-muted); font-size: .85rem; }
+
+/* ── Metric card (enhanced) ──────────────────────────── */
+.kpi-card {
+    background: var(--a-bg);
+    border: 1px solid var(--a-border);
+    border-radius: var(--a-radius);
+    padding: 1rem 1.2rem;
+    border-left: 3px solid var(--a-border-dk);
+    transition: box-shadow .15s ease;
+}
+.kpi-card:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+}
+.kpi-label {
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--a-muted);
+    margin: 0 0 .2rem 0;
+}
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--a-ink);
+    margin: 0;
+}
+.kpi-card.crit { border-left: 3px solid var(--dot-crit); }
+.kpi-card.low  { border-left: 3px solid var(--dot-low); }
+.kpi-card.ok   { border-left: 3px solid var(--dot-ok); }
+
+/* ── Supplier group card ─────────────────────────────── */
+.supplier-group {
+    background: var(--a-bg);
+    border: 1px solid var(--a-border);
+    border-left: 3px solid var(--a-accent);
+    border-radius: var(--a-radius);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: box-shadow .15s ease;
+}
+.supplier-group:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+}
+.supplier-name {
+    font-weight: 700;
+    font-size: .98rem;
+    color: var(--a-ink);
+    margin: 0 0 2px;
+}
+.supplier-contact {
+    font-size: .8rem;
+    color: var(--a-muted);
+    margin: 0 0 10px;
+}
+
+/* ── Responsive: collapse sidebar on narrow desktop ───── */
+@media (max-width: 900px) {
+    [data-testid="stSidebar"] {
+        min-width: 200px !important;
+        max-width: 210px !important;
+    }
+    .kpi-value { font-size: 1.6rem !important; }
+    .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
+}
+
+/* ── Inline edit panel ───────────────────────────────── */
+.edit-panel {
+    background: var(--a-surface);
+    border: 1px solid var(--a-border);
+    border-radius: var(--a-radius);
+    padding: 16px;
+    margin: 4px 0 8px;
+}
+
+/* ── Supplier table ──────────────────────────────────── */
+.sup-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .92rem;
+}
+.sup-table th {
+    padding: 8px 10px;
+    text-align: left;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--a-muted);
+    font-weight: 600;
+    border-bottom: 2px solid var(--a-border);
+}
+.sup-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #E8E0D0;
+    vertical-align: top;
+}
+.sup-table tr:hover td {
+    background: var(--a-hover);
+}
+
+/* ── Re-order card ───────────────────────────────────── */
+.reorder-group {
+    background: var(--a-bg);
+    border: 1px solid var(--a-border);
+    border-left: 3px solid var(--a-accent);
+    border-radius: var(--a-radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+.reorder-supplier {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--a-ink);
+    margin: 0 0 2px;
+}
+.reorder-contact {
+    font-size: .8rem;
+    color: var(--a-muted);
+    margin: 0 0 10px;
+}
+
+/* ── Unlinked (No Supplier) group — neutral border ──── */
+.supplier-group.unlinked,
+.reorder-group.unlinked {
+    border-left-color: var(--a-border-dk) !important;
+}

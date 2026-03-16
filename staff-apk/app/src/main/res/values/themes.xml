@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TaraGStaff" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">@color/gold</item>
+        <item name="android:navigationBarColor">@color/gold</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.TaraGStaff.Splash" parent="Theme.TaraGStaff">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

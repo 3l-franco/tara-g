@@ -1,0 +1,25 @@
+# Streamlit secrets — NEVER commit this
+.streamlit/secrets.toml
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android build artifacts (keep source, ignore outputs)
+staff-apk/.gradle/
+staff-apk/app/build/
+staff-apk/build/
+staff-apk/local.properties
+*.apk
+*.aab

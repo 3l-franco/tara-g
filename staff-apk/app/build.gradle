@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.tarag.staff'
+    compileSdk 34
+
+    signingConfigs {
+        release {
+            storeFile file('../tarag-release.jks')
+            storePassword 'TaragStaff2026!'
+            keyAlias 'tarag'
+            keyPassword 'TaragStaff2026!'
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.tarag.staff"
+        minSdk 26
+        targetSdk 34
+        versionCode 3
+        versionName "1.2"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.9.0'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+}

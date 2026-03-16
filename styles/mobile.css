@@ -1,0 +1,632 @@
+/* styles/mobile.css — Staff mobile design system
+   Spacing scale: 4 · 8 · 12 · 16 · 24 · 32            */
+
+/* ── Spacing & design tokens ─────────────────────────── */
+:root {
+    --sp-4:  4px;  --sp-8:  8px;  --sp-12: 12px;
+    --sp-16: 16px; --sp-24: 24px; --sp-32: 32px;
+
+    --m-ink:      #1A1A1A;
+    --m-secondary:#4A4A4A;
+    --m-muted:    #666;          /* ≥ 5.5:1 on #FFFDF5 */
+    --m-border:   #DDD6C8;
+    --m-surface:  #FFFDF5;
+    --m-bg:       #FFF9E6;
+    --m-accent:   #F5C518;
+    --m-radius:   8px;
+    --dot-crit:   #D32F2F;
+    --dot-low:    #F9A825;
+    --dot-ok:     #388E3C;
+}
+
+/* ── Prevent pull-to-refresh / overscroll reload ─────── */
+html, body {
+    overscroll-behavior: none;
+}
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+section.main {
+    overscroll-behavior: none !important;
+}
+
+/* ── Reset — hide Streamlit chrome ───────────────────── */
+[data-testid="stSidebar"],
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
+header[data-testid="stHeader"],
+footer,
+[data-testid="stToolbar"],
+#MainMenu,
+.stDeployButton,
+[data-testid="manage-app-button"],
+[data-testid="stStatusWidget"],
+[data-testid="stDecoration"],
+.viewerBadge_container__r5tak,
+.viewerBadge_link__qRIco,
+.stAppDeployButton,
+[class*="viewerBadge"],
+iframe[title="streamlit_badge"] { display: none !important; }
+
+/* Remove top padding/gap above header — every Streamlit version */
+.stApp,
+.stApp > [data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > section,
+[data-testid="stMain"],
+[data-testid="stMain"] > div,
+[data-testid="stMain"] > div > div,
+[data-testid="stMainBlockContainer"],
+[data-testid="stMainBlockContainer"] > div,
+[data-testid="stAppViewBlockContainer"],
+.stMainBlockContainer,
+.block-container { padding-top: 0 !important; margin-top: 0 !important; }
+
+header[data-testid="stHeader"] {
+    display: none !important;
+    height: 0 !important; min-height: 0 !important; max-height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important; top: -9999px !important;
+}
+[data-testid="stDecoration"],
+[data-testid="stToolbar"] {
+    display: none !important; height: 0 !important; overflow: hidden !important;
+}
+
+/* ── Page layout ─────────────────────────────────────── */
+.block-container {
+    padding: 52px var(--sp-16) var(--sp-16) var(--sp-16) !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    font-size: 15px !important;
+}
+
+/* Ensure block container has 52px top padding regardless of Streamlit version
+   or emotion-generated class name — data-testid stays stable across versions */
+[data-testid="stMainBlockContainer"],
+[data-testid="stAppViewBlockContainer"] {
+    padding-top: 52px !important;
+}
+
+[data-testid="stVerticalBlock"] > div  { gap: var(--sp-4) !important; }
+[data-testid="stHorizontalBlock"]      { gap: var(--sp-8) !important; }
+
+/* ── Header bar (fixed — always sits above Streamlit chrome) ── */
+.m-header {
+    background: var(--m-accent);
+    margin: 0;
+    padding: var(--sp-8) var(--sp-16);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Fixed at top of viewport — overlays any gray gap Streamlit renders */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    z-index: 99999 !important;
+}
+
+/* Anchor wrapper — collapses to 0 height in document flow so fixed
+   header doesn't push content; overflow:visible keeps it on screen */
+.m-header-anchor {
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+[data-testid="element-container"]:has(.m-header-anchor),
+[data-testid="stMarkdownContainer"]:has(.m-header-anchor) {
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.m-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--m-ink);
+    letter-spacing: -.02em;
+}
+.m-brand img {
+    width: 30px; height: 30px;
+    border-radius: 6px; object-fit: cover;
+}
+
+.m-user-chip {
+    font-size: .7rem;
+    font-weight: 600;
+    color: var(--m-ink);
+    background: rgba(255,255,255,.55);
+    border-radius: var(--sp-4);
+    padding: 2px var(--sp-8);
+}
+
+/* ── Tabs (segmented control — gold theme) ───────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: var(--sp-4) !important;
+    background: rgba(245, 197, 24, .22) !important;
+    border-radius: var(--m-radius) !important;
+    padding: 3px !important;
+    margin-top: var(--sp-8) !important;
+    border-bottom: none !important;
+    /* Allow horizontal scroll on very narrow phones (< 320px) */
+    overflow-x: auto !important;
+    scrollbar-width: none !important;  /* Firefox */
+    -webkit-overflow-scrolling: touch !important;
+}
+.stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {
+    display: none !important;  /* Chrome/Safari */
+}
+.stTabs [data-baseweb="tab"] {
+    flex: 1 !important;
+    flex-shrink: 0 !important;
+    justify-content: center !important;
+    height: 44px !important;
+    font-size: .82rem !important;
+    font-weight: 600 !important;
+    color: var(--m-secondary) !important;
+    border-radius: 6px !important;
+    padding: 0 var(--sp-8) !important;
+    white-space: nowrap !important;
+    border-bottom: none !important;
+    background: transparent !important;
+    min-width: 0 !important;
+}
+.stTabs [aria-selected="true"] {
+    background: var(--m-accent) !important;
+    color: var(--m-ink) !important;
+    font-weight: 700 !important;
+    border-bottom: none !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12) !important;
+}
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"] {
+    display: none !important;
+}
+.stTabs [data-baseweb="tab-panel"] {
+    padding: var(--sp-8) 0 0 0 !important;
+}
+
+/* ── Form labels ─────────────────────────────────────── */
+.m-form-label {
+    font-weight: 500;
+    font-size: .65rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--m-muted);
+    margin: var(--sp-4) 0 0;
+    line-height: 1.2;
+}
+
+/* ── Product card ────────────────────────────────────── */
+.m-card {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: var(--m-radius);
+    padding: var(--sp-8) var(--sp-12);
+    margin: var(--sp-4) 0;
+}
+.m-card.crit { border-left: 3px solid var(--dot-crit); }
+.m-card.low  { border-left: 3px solid var(--dot-low); }
+
+.m-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.m-card-info {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
+    min-width: 0;
+}
+.m-card-name {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--m-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.m-card-qty {
+    text-align: right;
+    flex-shrink: 0;
+    padding-left: var(--sp-12);
+}
+.m-card-qty-num {
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--m-ink);
+}
+.m-card-qty-unit {
+    font-size: .68rem;
+    color: var(--m-muted);
+    margin-left: var(--sp-4);
+}
+
+/* ── Status pills ────────────────────────────────────── */
+.m-status-pill {
+    display: inline-block;
+    font-size: .58rem;
+    font-weight: 700;
+    padding: 2px var(--sp-8);
+    border-radius: var(--sp-4);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    vertical-align: middle;
+}
+.m-status-pill.crit { background: var(--dot-crit); color: #FFF; }
+.m-status-pill.low  { background: var(--dot-low);  color: var(--m-ink); }
+.m-status-pill.ok   { background: var(--dot-ok);   color: #FFF; }
+
+/* ── Confirm box ─────────────────────────────────────── */
+.m-confirm {
+    background: var(--m-surface);
+    border: 2px solid var(--m-ink);
+    border-radius: var(--m-radius);
+    padding: var(--sp-12) var(--sp-16);
+    margin: var(--sp-8) 0;
+}
+.m-confirm-title { font-weight: 700; font-size: .88rem; color: var(--m-ink); margin: 0 0 var(--sp-4); }
+.m-confirm-body  { font-size: .82rem; color: var(--m-secondary); margin: 0; }
+
+/* ── Inventory cards ─────────────────────────────────── */
+.m-inv-card {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: var(--m-radius);
+    padding: var(--sp-8) var(--sp-12);
+    margin-bottom: var(--sp-4);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-12);
+}
+.m-inv-card.crit { border-left: 3px solid var(--dot-crit); }
+.m-inv-card.low  { border-left: 3px solid var(--dot-low); }
+
+.m-inv-info     { flex: 1; min-width: 0; }
+.m-inv-name     {
+    font-size: .92rem; font-weight: 700; color: var(--m-ink);
+    margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+}
+.m-inv-sub      { font-size: .72rem; color: var(--m-muted); margin: 2px 0 0; }
+.m-inv-qty      { text-align: right; flex-shrink: 0; }
+.m-inv-qty-num  { font-size: 1.3rem; font-weight: 800; color: var(--m-ink); display: block; }
+.m-inv-qty-unit { font-size: .68rem; color: var(--m-muted); }
+
+/* Inline status badge inside inventory card name row */
+.m-inv-badge {
+    display: inline-block;
+    font-size: .58rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.m-inv-badge.crit { background: var(--dot-crit); color: #FFF; }
+.m-inv-badge.low  { background: var(--dot-low);  color: var(--m-ink); }
+.m-inv-badge.ok   { background: var(--dot-ok);   color: #FFF; }
+
+/* Station group header inside inventory list */
+.m-inv-station-hdr {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--m-muted);
+    margin: var(--sp-12) 0 var(--sp-4);
+    padding-bottom: var(--sp-4);
+    border-bottom: 1px solid var(--m-border);
+}
+
+/* ── Log cards ───────────────────────────────────────── */
+.m-log-card {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: var(--m-radius);
+    padding: var(--sp-8) var(--sp-12);
+    margin-bottom: var(--sp-4);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
+}
+.m-log-icon {
+    width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700;
+}
+.m-log-icon.in  { background: #E8F5E9; color: #2E7D32; }
+.m-log-icon.out { background: #FFEBEE; color: #C62828; }
+
+.m-log-body     { flex: 1; min-width: 0; }
+.m-log-product  {
+    font-size: .88rem; font-weight: 600; color: var(--m-ink);
+    margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-log-meta     { font-size: .72rem; color: var(--m-muted); margin: 1px 0 0; }
+.m-log-delta    { font-size: .88rem; font-weight: 700; flex-shrink: 0; }
+.m-log-delta.in  { color: #2E7D32; }
+.m-log-delta.out { color: #C62828; }
+
+/* ── Summary stats ───────────────────────────────────── */
+.m-stat-row { display: flex; gap: var(--sp-8); margin-bottom: var(--sp-8); }
+.m-stat     { flex: 1; border-radius: var(--m-radius); padding: var(--sp-8);
+              text-align: center; border: 1px solid var(--m-border);
+              background: var(--m-surface); }
+.m-stat-n   { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--m-ink); }
+.m-stat-lbl { font-size: .68rem; font-weight: 600; margin: 0; color: var(--m-muted); }
+/* Color the IN / OUT stat numbers for immediate scannability */
+.m-stat.in  { border-left: 3px solid var(--dot-ok); }
+.m-stat.out { border-left: 3px solid var(--dot-crit); }
+.m-stat.in  .m-stat-n { color: #2E7D32; }
+.m-stat.out .m-stat-n { color: #C62828; }
+/* ── Touch targets (48px min for WCAG 2.5.8) ─────────── */
+.stButton > button {
+    min-height: 48px !important;
+    border-radius: var(--m-radius) !important;
+    font-weight: 600 !important;
+    font-size: .88rem !important;
+    transition: transform .1s ease, box-shadow .1s ease !important;
+}
+.stButton > button:active {
+    transform: scale(.97) !important;
+}
+.stButton > button[kind="primary"] {
+    background: var(--m-ink) !important;
+    border-color: var(--m-ink) !important;
+    color: #FFF !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18) !important;
+}
+.stButton > button[kind="primary"]:active {
+    box-shadow: none !important;
+}
+
+.stNumberInput input {
+    height: 48px !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    border-radius: var(--m-radius) !important;
+}
+.stNumberInput button {
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    font-size: 1.2rem !important;
+}
+
+.stSelectbox > div > div,
+.stTextInput input {
+    min-height: 44px !important;
+    border-radius: var(--m-radius) !important;
+    font-size: .88rem !important;
+}
+
+/* ── Focus borders — brand accent, never red ─────────── */
+[data-baseweb="select"] > div {
+    border-color: var(--m-border) !important;
+}
+[data-baseweb="select"]:focus-within > div,
+[data-baseweb="select"][aria-expanded="true"] > div {
+    border-color: var(--m-accent) !important;
+    box-shadow: 0 0 0 1px var(--m-accent) !important;
+}
+[data-baseweb="input"]:focus-within {
+    border-color: var(--m-accent) !important;
+    box-shadow: 0 0 0 1px var(--m-accent) !important;
+}
+.stNumberInput input:focus {
+    border-color: var(--m-accent) !important;
+    box-shadow: 0 0 0 1px var(--m-accent) !important;
+}
+
+/* ── Segmented control (status filter — matches tab style) ─ */
+[data-testid="stSegmentedControl"] {
+    width: 100% !important;
+}
+[data-testid="stSegmentedControl"] > div {
+    background: rgba(245, 197, 24, .22) !important;
+    border-radius: var(--m-radius) !important;
+    padding: 3px !important;
+    gap: var(--sp-4) !important;
+    width: 100% !important;
+    border: none !important;
+}
+[data-testid="stSegmentedControl"] button {
+    flex: 1 !important;
+    height: 40px !important;
+    font-size: .82rem !important;
+    font-weight: 600 !important;
+    color: var(--m-secondary) !important;
+    border-radius: 6px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+[data-testid="stSegmentedControl"] button[aria-checked="true"],
+[data-testid="stSegmentedControl"] button[data-selected="true"],
+[data-testid="stSegmentedControl"] button[aria-pressed="true"] {
+    background: var(--m-accent) !important;
+    color: var(--m-ink) !important;
+    font-weight: 700 !important;
+    box-shadow: none !important;
+}
+
+/* ── Utility classes (replacing inline styles) ────────── */
+.m-pill-row   { display: flex; gap: var(--sp-8); margin-bottom: var(--sp-8); flex-wrap: wrap; }
+.m-spacer-8   { height: var(--sp-8); }
+
+/* ── Confirm body sub-elements ────────────────────────── */
+.m-confirm-delta  { font-size: 1.1rem; font-weight: 800; }
+.m-confirm-change { font-size: .88rem; color: var(--m-muted); font-weight: 600; }
+.m-confirm-actor  { font-size: .72rem; color: var(--m-muted); }
+
+/* ── Critical alert box ──────────────────────────────── */
+.m-crit-alert {
+    background: var(--m-surface);
+    border: 2px solid var(--dot-crit);
+    border-radius: var(--m-radius);
+    padding: var(--sp-12) var(--sp-16);
+    margin-top: var(--sp-8);
+}
+.m-crit-alert-title { font-weight: 700; font-size: .88rem; color: var(--dot-crit); margin: 0 0 var(--sp-4); }
+.m-crit-alert-list  { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); margin-top: var(--sp-4); }
+.m-crit-alert-item  { font-size: .78rem; color: var(--m-secondary); white-space: nowrap; }
+
+/* ── Empty state ─────────────────────────────────────── */
+.m-empty {
+    text-align: center;
+    padding: var(--sp-32) var(--sp-16);
+    color: var(--m-muted);
+}
+.m-empty-icon { font-size: 1.5rem; margin: 0; color: var(--m-border); }
+.m-empty-title { font-weight: 600; margin: var(--sp-8) 0 var(--sp-4); }
+.m-empty-sub   { font-size: .92rem; margin: 0; }
+
+/* ── Log note (muted inline) ─────────────────────────── */
+.m-log-note { font-size: .72rem; color: var(--m-muted); }
+
+/* ── Staff inventory table (m-sinv-*) ─────────────────── */
+.m-sinv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+}
+.m-sinv-table thead th {
+    padding: 5px 6px;
+    text-align: left;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--m-muted);
+    font-weight: 700;
+    border-bottom: 2px solid var(--m-border);
+    white-space: nowrap;
+}
+.m-sinv-table tbody td {
+    padding: 7px 6px;
+    border-bottom: 1px solid var(--m-border);
+    vertical-align: middle;
+}
+.m-sinv-table tbody tr:last-child td { border-bottom: none; }
+
+/* dot column */
+.m-sinv-dot { width: 16px; padding-right: 4px !important; }
+
+/* product name — not bold, wraps freely */
+.m-sinv-name {
+    color: var(--m-ink);
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+/* inline status badge beside product name */
+.m-sinv-badge {
+    display: inline-block;
+    font-size: .58rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-left: 5px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.m-sinv-badge.crit { background: var(--dot-crit); color: #FFF; }
+.m-sinv-badge.low  { background: var(--dot-low);  color: var(--m-ink); }
+
+/* numeric columns (Stock / Min / Crit) */
+.m-sinv-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding-left: 10px !important;
+}
+thead .m-sinv-num { text-align: right; }
+.m-sinv-num.muted { color: var(--m-muted); font-size: .82rem; }
+
+/* ── Button hierarchy ────────────────────────────────── */
+.stButton > button[kind="primary"] {
+    font-size: 1rem !important;
+    min-height: 52px !important;
+    font-weight: 700 !important;
+}
+.stButton > button:not([kind="primary"]) {
+    background: transparent !important;
+    color: var(--m-secondary) !important;
+    border: 1px solid var(--m-border) !important;
+    font-size: .85rem !important;
+}
+/* ── Spinner — match brand (★ spinner ring top-color = gold) ─ */
+.stSpinner > div {
+    border-top-color: var(--m-ink) !important;
+}
+
+/* ── iOS safe area padding ─────────────────────────── */
+[data-testid="stMainBlockContainer"],
+[data-testid="stAppViewBlockContainer"],
+.block-container {
+    padding-bottom: max(var(--sp-16), env(safe-area-inset-bottom)) !important;
+}
+
+/* ── Card fade-in animation ─────────────────────────── */
+@keyframes m-card-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+.m-card,
+.m-log-card,
+.m-inv-card,
+.m-confirm {
+    animation: m-card-in 150ms ease forwards;
+}
+
+/* ── More / Settings tab content ─────────────────────── */
+.m-more-section {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: var(--m-radius);
+    padding: var(--sp-12) var(--sp-16);
+    margin-bottom: var(--sp-8);
+}
+.m-more-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-8) 0;
+    border-bottom: 1px solid var(--m-border);
+}
+.m-more-row:last-child { border-bottom: none; }
+.m-more-label {
+    font-size: .82rem;
+    color: var(--m-secondary);
+    font-weight: 500;
+}
+.m-more-value {
+    font-size: .82rem;
+    color: var(--m-muted);
+    font-weight: 400;
+}
+
+/* ── Danger-action buttons (Stock Out / Sign Out) ─────── */
+/* Uses CSS :has() sibling selector — Chrome 105+, Safari 15.4+, FF 121+ */
+[data-testid="element-container"]:has(.m-stock-out-ctx) ~ [data-testid="element-container"] .stButton > button[kind="secondary"],
+[data-testid="element-container"]:has(.m-signout-ctx) ~ [data-testid="element-container"] .stButton > button[kind="secondary"] {
+    border: 2px solid #C62828 !important;
+    color: #C62828 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
