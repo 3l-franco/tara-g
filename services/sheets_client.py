@@ -137,18 +137,12 @@ def save_stations(station_list):
 
 @st.cache_data(ttl=CACHE_TTL, show_spinner=False)
 def get_categories():
-    """
-    Returns the live category list from the Categories sheet.
-    Falls back to DEFAULT_CATEGORIES if the sheet is empty or missing.
-    Auto-seeds the sheet with defaults on first use.
-    """
     try:
-        ws   = get_ws('categories')
+        ws   = get_or_create_ws('categories')
         vals = api_call(ws.col_values, 1)
         cats = [v.strip() for v in vals if v.strip()]
         if cats:
             return cats
-        # Sheet exists but empty — seed with defaults
         api_call(ws.update, 'A1',
                  [[c] for c in DEFAULT_CATEGORIES],
                  value_input_option='USER_ENTERED')
@@ -158,9 +152,11 @@ def get_categories():
 
 
 def save_categories(category_list):
-    """Writes the full category list to the Categories sheet."""
+    """Writes the full category list to the Categories sheet.
+    Auto-creates the tab if it doesn't exist yet."""
     try:
-        ws = get_ws('categories')
+        # Use get_or_create_ws so the tab is made on first write
+        ws = get_or_create_ws('categories')
         api_call(ws.clear)
         if category_list:
             api_call(ws.update, 'A1',
