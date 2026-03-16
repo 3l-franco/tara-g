@@ -15,16 +15,17 @@ SCOPES = [
 
 SHEETS = {
     'users':        'Users',
-    'creds':        '_Creds',   # password hashes — keep this tab protected in Sheets
+    'creds':        '_Creds',
     'products':     'Products',
     'suppliers':    'Suppliers',
     'transactions': 'Transactions',
     'stations':     'Stations',
+    'categories':   'Categories',   # ← new: managed via Products & Stock
 }
 
 DEFAULT_STATIONS = ['Drinks', 'Kitchen', 'Packaging', 'Supplies', 'Others']
 
-CATEGORIES = [
+DEFAULT_CATEGORIES = [
     'Milktea',
     'Coffee',
     'Iced Drinks',
@@ -34,6 +35,10 @@ CATEGORIES = [
     'Supplies / Packaging',
     'Others',
 ]
+
+# Legacy constant kept so existing imports don't break.
+# At runtime the app reads from Google Sheets via get_categories().
+CATEGORIES = DEFAULT_CATEGORIES
 
 UNITS = ['pcs', 'cups', 'kg', 'g', 'L', 'mL', 'packs', 'bottles', 'bags', 'sachets']
 
@@ -59,9 +64,7 @@ CACHE_TTL = 300
 
 PAGE_SIZE = 50
 
-SESSION_TIMEOUT_SECONDS = 14400  # 4 h inactivity auto-logout (staff step away during service)
+SESSION_TIMEOUT_SECONDS = 14400
 MIN_PASSWORD_LENGTH     = 8
 
-TOKEN_EXPIRY_DAYS   = 30                    # login token valid for 30 days (monthly re-login)
-# NOTE: The HMAC signing key (auth_secret) must be set in Streamlit secrets only.
-# Do not add it here. See .streamlit/secrets.toml or Streamlit Cloud → App secrets.
+TOKEN_EXPIRY_DAYS = 30
