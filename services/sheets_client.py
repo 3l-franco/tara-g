@@ -4,11 +4,8 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from config import SCOPES, SHEETS, DEFAULT_STATIONS, CACHE_TTL
-try:
-    from config import DEFAULT_CATEGORIES
-except ImportError:
-    from config import CATEGORIES as DEFAULT_CATEGORIES
+from config import SCOPES, SHEETS, DEFAULT_STATIONS, DEFAULT_CATEGORIES, CACHE_TTL
+
 def api_call(fn, *args, max_retries=4, **kwargs):
     for attempt in range(max_retries):
         try:
