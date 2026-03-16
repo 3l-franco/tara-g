@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from config import SCOPES, SHEETS, DEFAULT_STATIONS, CACHE_TTL
+from config import SCOPES, SHEETS, DEFAULT_STATIONS, DEFAULT_CATEGORIES, CACHE_TTL
 
 def api_call(fn, *args, max_retries=4, **kwargs):
     for attempt in range(max_retries):
@@ -24,11 +24,8 @@ def api_call(fn, *args, max_retries=4, **kwargs):
 def get_client():
     try:
         info = {k: v for k, v in st.secrets['gcp_service_account'].items()}
-        # Fix private key — Streamlit Cloud TOML can double-escape \n
         pk = info.get('private_key', '')
-        # Replace literal backslash-n with real newlines
         pk = pk.replace('\\n', '\n')
-        # Ensure exactly one trailing newline
         pk = pk.strip() + '\n'
         info['private_key'] = pk
         creds = Credentials.from_service_account_info(info, scopes=SCOPES)
@@ -50,11 +47,6 @@ def get_ws(key):
 
 
 def get_or_create_ws(key, default_headers=None):
-    """
-    Return the live worksheet for ``key``, auto-creating the tab (+ header row)
-    if it does not yet exist.  Intentionally bypasses the ``get_ws`` cache so
-    the sheet is always reachable even on first use or after cache invalidation.
-    """
     ss         = _get_spreadsheet()
     sheet_name = SHEETS[key]
     try:
@@ -63,19 +55,16 @@ def get_or_create_ws(key, default_headers=None):
         ename = type(e).__name__.lower()
         emsg  = str(e).lower()
         if 'notfound' in ename or 'not found' in emsg or 'worksheet' in ename:
-            # Tab missing — create it then write headers
             col_count = max(len(default_headers or []) + 2, 10)
             ws = api_call(ss.add_worksheet,
                           title=sheet_name, rows=2000, cols=col_count)
             if default_headers:
                 api_call(ws.update, 'A1', [default_headers],
                          value_input_option='USER_ENTERED')
-            # Flush cached ws handle so future calls pick up the new tab
             get_ws.clear()
         else:
             raise
     else:
-        # Tab exists — write header row if completely blank (first-time setup)
         if default_headers:
             first_row = api_call(ws.row_values, 1)
             if not any(str(v).strip() for v in first_row):
@@ -98,10 +87,19 @@ def read_df(key):
         return pd.DataFrame()
 
 def clear_data_cache():
-    read_df.clear()
-    get_staff_display_names.clear()
-    get_stations.clear()
-    get_ws.clear()
+    for fn, name in [
+        (read_df,                 'read_df'),
+        (get_staff_display_names, 'get_staff_display_names'),
+        (get_stations,            'get_stations'),
+        (get_categories,          'get_categories'),
+        (get_ws,                  'get_ws'),
+    ]:
+        try:
+            fn.clear()
+        except Exception as exc:
+            import sys
+            print(f'[sheets_client] clear: could not clear {name}: {exc}',
+                  file=sys.stderr)
 
 def get_sheet_url():
     try:
@@ -126,13 +124,54 @@ def save_stations(station_list):
         api_call(ws.clear)
         if station_list:
             api_call(ws.update, 'A1',
-                      [[s] for s in station_list],
-                      value_input_option='USER_ENTERED')
+                     [[s] for s in station_list],
+                     value_input_option='USER_ENTERED')
         get_stations.clear()
         return True
     except Exception as e:
         st.error(f'Failed to save stations: {e}')
         return False
+
+
+# ── Categories ────────────────────────────────────────────
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def get_categories():
+    """
+    Returns the live category list from the Categories sheet.
+    Falls back to DEFAULT_CATEGORIES if the sheet is empty or missing.
+    Auto-seeds the sheet with defaults on first use.
+    """
+    try:
+        ws   = get_ws('categories')
+        vals = api_call(ws.col_values, 1)
+        cats = [v.strip() for v in vals if v.strip()]
+        if cats:
+            return cats
+        # Sheet exists but empty — seed with defaults
+        api_call(ws.update, 'A1',
+                 [[c] for c in DEFAULT_CATEGORIES],
+                 value_input_option='USER_ENTERED')
+        return list(DEFAULT_CATEGORIES)
+    except Exception:
+        return list(DEFAULT_CATEGORIES)
+
+
+def save_categories(category_list):
+    """Writes the full category list to the Categories sheet."""
+    try:
+        ws = get_ws('categories')
+        api_call(ws.clear)
+        if category_list:
+            api_call(ws.update, 'A1',
+                     [[c] for c in category_list],
+                     value_input_option='USER_ENTERED')
+        get_categories.clear()
+        return True
+    except Exception as e:
+        st.error(f'Failed to save categories: {e}')
+        return False
+
 
 @st.cache_data(ttl=CACHE_TTL, show_spinner=False)
 def get_staff_display_names():
@@ -152,7 +191,6 @@ def get_staff_display_names():
 
 
 def reset_sheet_data(key):
-    """Delete all data rows from a sheet, keeping the header row."""
     try:
         ws = get_ws(key)
         rows = api_call(ws.get_all_values)
@@ -165,7 +203,6 @@ def reset_sheet_data(key):
 
 
 def update_supplier_in_sheet(supplier_id, updates: dict):
-    """Update a supplier row by supplier_id."""
     import gspread as _gs
     ws = get_ws('suppliers')
     records = api_call(ws.get_all_records)
@@ -192,7 +229,6 @@ def update_supplier_in_sheet(supplier_id, updates: dict):
 
 
 def delete_supplier_from_sheet(supplier_id):
-    """Delete a supplier row by supplier_id."""
     ws = get_ws('suppliers')
     records = api_call(ws.get_all_records)
     headers = api_call(ws.row_values, 1)
@@ -205,6 +241,6 @@ def delete_supplier_from_sheet(supplier_id):
             break
 
     if row_idx is None:
-        raise ValueError(f'Supplier not found.')
+        raise ValueError('Supplier not found.')
 
     api_call(ws.delete_rows, row_idx)
